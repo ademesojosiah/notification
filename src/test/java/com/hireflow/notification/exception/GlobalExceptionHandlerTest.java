@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 
 import java.util.Map;
 
@@ -56,6 +57,15 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response.getBody()).containsEntry("error", "An unexpected error occurred");
+    }
+
+    @Test
+    @DisplayName("AsyncRequestTimeoutException should return 204 with no body")
+    void handleAsyncRequestTimeoutShouldReturnNoContent() {
+        ResponseEntity<Void> response = handler.handleAsyncRequestTimeout(new AsyncRequestTimeoutException(), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
     }
 
     @Test

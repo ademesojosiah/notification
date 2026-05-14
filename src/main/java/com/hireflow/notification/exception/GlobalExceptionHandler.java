@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 
 import java.util.Map;
 
@@ -25,6 +26,12 @@ public class GlobalExceptionHandler {
         log.warn("Invalid argument at {}: {}", request.getRequestURI(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", "Bad request", "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public ResponseEntity<Void> handleAsyncRequestTimeout(AsyncRequestTimeoutException ex, HttpServletRequest request) {
+        log.debug("Async request timed out at {}", request.getRequestURI());
+        return ResponseEntity.noContent().build();
     }
 
     @ExceptionHandler(Exception.class)

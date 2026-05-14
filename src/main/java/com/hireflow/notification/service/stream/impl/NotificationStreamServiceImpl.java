@@ -26,7 +26,7 @@ public class NotificationStreamServiceImpl implements NotificationStreamService 
         emittersByApplicantId.computeIfAbsent(applicantId, key -> new CopyOnWriteArrayList<>()).add(emitter);
 
         emitter.onCompletion(() -> removeEmitter(applicantId, emitter));
-        emitter.onTimeout(() -> removeEmitter(applicantId, emitter));
+        emitter.onTimeout(() -> closeEmitter(applicantId, emitter));
         emitter.onError(error -> removeEmitter(applicantId, emitter));
 
         try {
@@ -59,6 +59,11 @@ public class NotificationStreamServiceImpl implements NotificationStreamService 
         }
 
         log.info("Broadcast application stage update {} to {} SSE clients", event.getApplicationId(), emitters.size());
+    }
+
+    private void closeEmitter(String applicantId, SseEmitter emitter) {
+        removeEmitter(applicantId, emitter);
+        emitter.complete();
     }
 
     private void removeEmitter(String applicantId, SseEmitter emitter) {
