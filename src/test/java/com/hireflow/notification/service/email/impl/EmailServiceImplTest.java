@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Properties;
 
@@ -107,7 +108,12 @@ class EmailServiceImplTest {
         when(mailSender.createMimeMessage()).thenReturn(message);
 
         EmailNotificationEvent event = stageEvent("INTERVIEW_SCHEDULED");
-        event.setMessage("Your interview is scheduled for Friday at 10:00 AM UTC.");
+        event.setMessage("Your interview details are below.");
+        event.setMeetingLink("https://meet.google.com/abc-defg-hij");
+        event.setInterviewStartTime(Instant.parse("2026-05-20T14:00:00Z"));
+        event.setInterviewEndTime(Instant.parse("2026-05-20T15:00:00Z"));
+        event.setInterviewTimezone("America/Los_Angeles");
+        event.setInterviewerEmail("maya@acme.test");
 
         emailService.sendApplicationStageUpdate(event);
 
@@ -115,7 +121,13 @@ class EmailServiceImplTest {
         assertThat(sent.getSubject()).isEqualTo("Interview Scheduled – Backend Engineer at Acme Labs");
         assertThat(body(sent))
                 .contains("Interview Scheduled")
-                .contains("Friday at 10:00 AM UTC");
+                .contains("Your interview details are below.")
+                .contains("Wed, May 20, 2026 7:00 AM PDT")
+                .contains("Wed, May 20, 2026 8:00 AM PDT")
+                .contains("America/Los_Angeles")
+                .contains("maya@acme.test")
+                .contains("https://meet.google.com/abc-defg-hij")
+                .contains("Join Interview");
     }
 
     @Test

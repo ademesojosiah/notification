@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,6 +34,11 @@ public class EmailNotificationEvent {
     private String actor;
     private String message;
     private String inviteLink;
+    private String meetingLink;
+    private Instant interviewStartTime;
+    private Instant interviewEndTime;
+    private String interviewTimezone;
+    private String interviewerEmail;
 
     public EmailNotificationEvent(String type, String to, String otp, String firstName, String companyName) {
         this.type = type;

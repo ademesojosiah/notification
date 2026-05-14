@@ -12,10 +12,18 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
+
+    private static final DateTimeFormatter INTERVIEW_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("EEE, MMM d, yyyy h:mm a z");
 
     private final JavaMailSender mailSender;
 
@@ -98,7 +106,7 @@ public class EmailServiceImpl implements EmailService {
         return switch (event.getCurrentStage()) {
             case "APPLIED" -> buildAppliedBody(name, job, company);
             case "SCREENING" -> buildScreeningBody(name, job, company);
-            case "INTERVIEW_SCHEDULED" -> buildInterviewScheduledBody(name, job, company, event.getMessage());
+            case "INTERVIEW_SCHEDULED" -> buildInterviewScheduledBody(name, job, company, event);
             case "OFFER_SENT" -> buildOfferSentBody(name, job, company, event.getMessage());
             case "HIRED" -> buildHiredBody(name, job, company);
             case "REJECTED" -> buildRejectedBody(name, job, company, event.getReason());
@@ -134,10 +142,12 @@ public class EmailServiceImpl implements EmailService {
                 """.formatted(name, job, company);
     }
 
-    private String buildInterviewScheduledBody(String name, String job, String company, String message) {
+    private String buildInterviewScheduledBody(String name, String job, String company, EmailNotificationEvent event) {
+        String message = event.getMessage();
         String extra = message != null && !message.isBlank()
                 ? "<p>" + message + "</p>"
                 : "<p>The hiring team will be in touch with further details on timing and format.</p>";
+        String details = interviewDetails(event);
         return """
                 <html>
                   <body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; color: #111827;">
@@ -145,10 +155,50 @@ public class EmailServiceImpl implements EmailService {
                     <p>Hi %s,</p>
                     <p>Congratulations! You have been selected for an interview for <strong>%s</strong> at <strong>%s</strong>.</p>
                     %s
+                    %s
                     <p style="color: #6B7280; font-size: 12px;">This is an automated notification from HireFlow. Please do not reply to this email.</p>
                   </body>
                 </html>
-                """.formatted(name, job, company, extra);
+                """.formatted(name, job, company, extra, details);
+    }
+
+    private String interviewDetails(EmailNotificationEvent event) {
+        StringBuilder builder = new StringBuilder();
+        if (event.getInterviewStartTime() != null) {
+            builder.append("<p><strong>When:</strong> ")
+                    .append(formatInterviewTime(event.getInterviewStartTime(), event.getInterviewTimezone()));
+            if (event.getInterviewEndTime() != null) {
+                builder.append(" - ").append(formatInterviewTime(event.getInterviewEndTime(), event.getInterviewTimezone()));
+            }
+            builder.append("</p>");
+        }
+        if (event.getInterviewTimezone() != null && !event.getInterviewTimezone().isBlank()) {
+            builder.append("<p><strong>Timezone:</strong> ").append(event.getInterviewTimezone()).append("</p>");
+        }
+        if (event.getInterviewerEmail() != null && !event.getInterviewerEmail().isBlank()) {
+            builder.append("<p><strong>Interviewer:</strong> ").append(event.getInterviewerEmail()).append("</p>");
+        }
+        if (event.getMeetingLink() != null && !event.getMeetingLink().isBlank()) {
+            builder.append("<p><a href=\"").append(event.getMeetingLink()).append("\" ")
+                    .append("style=\"background-color: #16A34A; color: #ffffff; padding: 10px 18px; text-decoration: none; border-radius: 6px; font-weight: bold;\">")
+                    .append("Join Interview</a></p>")
+                    .append("<p style=\"word-break: break-all; color: #2563EB;\">")
+                    .append(event.getMeetingLink())
+                    .append("</p>");
+        }
+        return builder.toString();
+    }
+
+    private String formatInterviewTime(Instant instant, String timezone) {
+        ZoneId zone = ZoneId.of("UTC");
+        if (timezone != null && !timezone.isBlank()) {
+            try {
+                zone = ZoneId.of(timezone);
+            } catch (DateTimeException ex) {
+                log.warn("Invalid interview timezone '{}', falling back to UTC", timezone);
+            }
+        }
+        return INTERVIEW_TIME_FORMATTER.withZone(zone).format(instant);
     }
 
     private String buildOfferSentBody(String name, String job, String company, String message) {
