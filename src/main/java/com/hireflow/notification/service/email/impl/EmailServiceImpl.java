@@ -28,7 +28,7 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username}")
+    @Value("${hireflow.mail.from}")
     private String from;
 
     @Override

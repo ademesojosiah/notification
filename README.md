@@ -27,7 +27,7 @@
 | Language    | Java 21                         |
 | Framework   | Spring Boot 4.0.6               |
 | Messaging   | Spring Kafka (consumer only)    |
-| Email       | Spring Mail — Brevo SMTP relay  |
+| Email       | Spring Mail — Gmail SMTP        |
 | Streaming   | Spring MVC `SseEmitter`         |
 | Build       | Maven                           |
 | Testing     | JUnit 5, Mockito, AssertJ       |
@@ -201,7 +201,7 @@ src/main/java/com/hireflow/notification/
 - Java 21
 - Maven 3.9+
 - Kafka broker running (default: `localhost:9092`)
-- SMTP credentials (Brevo or any SMTP relay)
+- Gmail SMTP credentials
 - hireflow Application Service running and publishing events
 
 ### Clone
@@ -222,11 +222,14 @@ NOTIFICATION_SERVER_PORT=8083
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 NOTIFICATION_KAFKA_GROUP_ID=notification-service
 NOTIFICATION_EMAIL_TOPIC=hireflow.notification.email.v1
-MAIL_USERNAME=your-brevo-smtp-username
-MAIL_PASSWORD=your-brevo-smtp-password
+GOOGLE_HOST=smtp.gmail.com
+GOOGLE_PORT=587
+GOOGLE_USERNAME=noreply@balancee.app
+GOOGLE_PASSWORD=your-google-app-password
+MAIL_FROM=noreply@balancee.app
 ```
 
-The SMTP relay is configured for **Brevo** (`smtp-relay.brevo.com:2525`). To switch providers, update `spring.mail.host` and `spring.mail.port` in `application.properties`.
+The SMTP relay is fixed to **Gmail** (`smtp.gmail.com:587`) with STARTTLS. `GOOGLE_PASSWORD` must be a Google app password, not the normal account password. `MAIL_FROM` should normally match `GOOGLE_USERNAME` unless the Gmail account is allowed to send as another verified address.
 
 ---
 
