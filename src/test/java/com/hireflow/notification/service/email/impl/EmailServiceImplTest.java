@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -26,6 +27,7 @@ import java.util.Properties;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -322,6 +324,19 @@ class EmailServiceImplTest {
                 .hasMessage("Failed to send verification email")
                 .hasCauseInstanceOf(MessagingException.class);
         verify(mailSender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    @DisplayName("Should wrap SMTP relay failures when sending OTP email")
+    void sendOtpShouldWrapSmtpRelayFailure() {
+        MimeMessage message = newMimeMessage();
+        when(mailSender.createMimeMessage()).thenReturn(message);
+        doThrow(new MailSendException("SMTP relay rejected message")).when(mailSender).send(message);
+
+        assertThatThrownBy(() -> emailService.sendOtp("candidate@hireflow.test", "739241"))
+                .isInstanceOf(EmailDeliveryException.class)
+                .hasMessage("Failed to send verification email")
+                .hasCauseInstanceOf(MailSendException.class);
     }
 
     private MimeMessage captureSentMessage() {

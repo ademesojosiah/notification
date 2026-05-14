@@ -8,6 +8,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -32,34 +33,34 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendOtp(String to, String otp) {
+        String subject = "Your HireFlow Verification Code";
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
-            helper.setSubject("Your HireFlow Verification Code");
+            helper.setSubject(subject);
             helper.setText(buildOtpEmailBody(otp), true);
-            mailSender.send(message);
-            log.info("OTP email sent to {}", to);
-        } catch (MessagingException ex) {
-            log.error("Failed to send OTP email to {}: {}", to, ex.getMessage());
+            sendThroughSmtpRelay("OTP", to, subject, message, "Failed to send verification email");
+        } catch (MessagingException | MailException ex) {
+            log.error("OTP email was not sent to {}: {}", to, ex.getMessage(), ex);
             throw new EmailDeliveryException("Failed to send verification email", ex);
         }
     }
 
     @Override
     public void sendCompanyWelcome(String to, String firstName, String companyName) {
+        String subject = "Welcome to HireFlow, " + companyName + "!";
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
-            helper.setSubject("Welcome to HireFlow, " + companyName + "!");
+            helper.setSubject(subject);
             helper.setText(buildWelcomeEmailBody(firstName, companyName), true);
-            mailSender.send(message);
-            log.info("Welcome email sent to {}", to);
-        } catch (MessagingException ex) {
-            log.error("Failed to send welcome email to {}: {}", to, ex.getMessage());
+            sendThroughSmtpRelay("Welcome", to, subject, message, "Failed to send welcome email");
+        } catch (MessagingException | MailException ex) {
+            log.error("Welcome email was not sent to {}: {}", to, ex.getMessage(), ex);
             throw new EmailDeliveryException("Failed to send welcome email", ex);
         }
     }
@@ -70,18 +71,30 @@ public class EmailServiceImpl implements EmailService {
             log.warn("Skipping stage update email — missing recipient or stage for application {}", event.getApplicationId());
             return;
         }
+        String subject = stageSubject(event);
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(from);
             helper.setTo(event.getTo());
-            helper.setSubject(stageSubject(event));
+            helper.setSubject(subject);
             helper.setText(stageEmailBody(event), true);
-            mailSender.send(message);
-            log.info("Stage update email sent to {} for stage {}", event.getTo(), event.getCurrentStage());
-        } catch (MessagingException ex) {
-            log.error("Failed to send stage update email to {}: {}", event.getTo(), ex.getMessage());
+            sendThroughSmtpRelay("Stage update " + event.getCurrentStage(), event.getTo(), subject, message, "Failed to send stage update email");
+        } catch (MessagingException | MailException ex) {
+            log.error("Stage update email was not sent to {} for stage {}: {}", event.getTo(), event.getCurrentStage(), ex.getMessage(), ex);
             throw new EmailDeliveryException("Failed to send stage update email", ex);
+        }
+    }
+
+    private void sendThroughSmtpRelay(String emailType, String to, String subject, MimeMessage message, String failureMessage) {
+        log.info("Submitting {} email to SMTP relay: to={}, from={}, subject=\"{}\"", emailType, to, from, subject);
+        try {
+            mailSender.send(message);
+            log.info("{} email accepted by SMTP relay: to={}, from={}, subject=\"{}\"", emailType, to, from, subject);
+        } catch (MailException ex) {
+            log.error("{} email rejected or failed at SMTP relay: to={}, from={}, subject=\"{}\", error={}",
+                    emailType, to, from, subject, ex.getMessage(), ex);
+            throw new EmailDeliveryException(failureMessage, ex);
         }
     }
 
@@ -273,17 +286,17 @@ public class EmailServiceImpl implements EmailService {
             log.warn("Skipping HR manager invite email — missing recipient or invite link");
             return;
         }
+        String subject = "You've been invited to join HireFlow as a Hiring Manager";
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(from);
             helper.setTo(to);
-            helper.setSubject("You've been invited to join HireFlow as a Hiring Manager");
+            helper.setSubject(subject);
             helper.setText(buildHManagerInviteBody(to, inviteLink), true);
-            mailSender.send(message);
-            log.info("HR manager invite email sent to {}", to);
-        } catch (MessagingException ex) {
-            log.error("Failed to send HR manager invite email to {}: {}", to, ex.getMessage());
+            sendThroughSmtpRelay("HR manager invite", to, subject, message, "Failed to send invite email");
+        } catch (MessagingException | MailException ex) {
+            log.error("HR manager invite email was not sent to {}: {}", to, ex.getMessage(), ex);
             throw new EmailDeliveryException("Failed to send invite email", ex);
         }
     }
