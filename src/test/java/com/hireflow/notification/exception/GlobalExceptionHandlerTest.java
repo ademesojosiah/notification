@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -80,6 +81,18 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody()).containsEntry("error", "Not found");
         assertThat(response.getBody()).containsEntry("message", "No resource exists for this path");
+    }
+
+    @Test
+    @DisplayName("HttpRequestMethodNotSupportedException should return 405 instead of generic 500")
+    void handleMethodNotSupportedShouldReturn405() {
+        HttpRequestMethodNotSupportedException ex = new HttpRequestMethodNotSupportedException("PROPFIND");
+
+        ResponseEntity<Map<String, String>> response = handler.handleMethodNotSupported(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(response.getBody()).containsEntry("error", "Method not allowed");
+        assertThat(response.getBody()).containsEntry("message", "This HTTP method is not supported for this path");
     }
 
     @Test

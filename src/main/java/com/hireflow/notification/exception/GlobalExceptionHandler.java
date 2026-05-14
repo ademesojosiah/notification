@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
@@ -40,6 +41,16 @@ public class GlobalExceptionHandler {
         log.debug("Static resource not found at {}: {}", request.getRequestURI(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("error", "Not found", "message", "No resource exists for this path"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, String>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request
+    ) {
+        log.debug("Unsupported HTTP method {} at {}", ex.getMethod(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(Map.of("error", "Method not allowed", "message", "This HTTP method is not supported for this path"));
     }
 
     @ExceptionHandler(Exception.class)
