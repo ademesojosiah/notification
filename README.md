@@ -4,6 +4,20 @@
 
 ---
 
+## Related Services
+
+HireFlow is split into three services. This repo is the **Notification Service**.
+
+| Service | Repository | Role |
+|---|---|---|
+| Application Service (hireflow) | https://github.com/ademesojosiah/hireflow | Owns the database; emits all domain events |
+| AI Screening Service | https://github.com/ademesojosiah/ai-Screening | Stateless worker; consumes `ApplicationSubmitted`, publishes screening results |
+| **Notification Service** *(this repo)* | https://github.com/ademesojosiah/notification | Stateless worker; consumes `EmailNotificationEvent`, sends email + SSE |
+
+All three services connect to the same Confluent Cloud Kafka cluster. The application service is the only one with a database.
+
+---
+
 ## Table of Contents
 
 1. [Tech Stack](#tech-stack)
@@ -26,10 +40,11 @@
 |-------------|---------------------------------|
 | Language    | Java 21                         |
 | Framework   | Spring Boot 4.0.6               |
-| Messaging   | Spring Kafka (consumer only)    |
+| Messaging   | Spring Kafka against Confluent Cloud (SASL_SSL + PLAIN) |
 | Email       | Spring Mail — Gmail SMTP        |
 | Streaming   | Spring MVC `SseEmitter`         |
 | Build       | Maven                           |
+| Container   | Multi-stage Docker (Temurin 21 JRE runtime, non-root) |
 | Testing     | JUnit 5, Mockito, AssertJ       |
 
 ---
@@ -110,7 +125,7 @@ When `currentStage = INTERVIEW_SCHEDULED`, the inbound `EmailNotificationEvent` 
 
 | Field | Purpose |
 |---|---|
-| `meetingLink` | Google Meet (or other provider) URL the applicant clicks to join |
+| `meetingLink` | Meeting URL the applicant clicks to join — currently a stub (Meet-shaped random URL); production will plug in a real conferencing provider |
 | `interviewStartTime` | UTC `Instant`; format for display in `interviewTimezone` |
 | `interviewEndTime` | UTC `Instant`; format for display in `interviewTimezone` |
 | `interviewTimezone` | IANA zone the applicant is expected to read the time in (e.g. `America/Los_Angeles`) |
@@ -219,7 +234,9 @@ Copy `env.properties` from the example and fill in your values:
 
 ```properties
 NOTIFICATION_SERVER_PORT=8083
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KAFKA_BOOTSTRAP_SERVERS=pkc-xxxxx.region.aws.confluent.cloud:9092
+KAFKA_API_KEY=your-confluent-api-key
+KAFKA_API_SECRET=your-confluent-api-secret
 NOTIFICATION_KAFKA_GROUP_ID=notification-service
 NOTIFICATION_EMAIL_TOPIC=hireflow.notification.email.v1
 GOOGLE_HOST=smtp.gmail.com
@@ -229,7 +246,16 @@ GOOGLE_PASSWORD=your-google-app-password
 MAIL_FROM=noreply@balancee.app
 ```
 
-The SMTP relay is fixed to **Gmail** (`smtp.gmail.com:587`) with STARTTLS. `GOOGLE_PASSWORD` must be a Google app password, not the normal account password. `MAIL_FROM` should normally match `GOOGLE_USERNAME` unless the Gmail account is allowed to send as another verified address.
+Kafka connects to Confluent Cloud via SASL_SSL + PLAIN. The SMTP relay is fixed to **Gmail** (`smtp.gmail.com:587`) with STARTTLS. `GOOGLE_PASSWORD` must be a Google app password, not the normal account password. `MAIL_FROM` should normally match `GOOGLE_USERNAME` unless the Gmail account is allowed to send as another verified address.
+
+## Docker
+
+A multi-stage `Dockerfile` is included (Temurin 21 JDK builder → JRE runtime, non-root `spring` user). Build and run:
+
+```bash
+docker build -t hireflow-notification .
+docker run --env-file env.properties -p 8083:8083 hireflow-notification
+```
 
 ---
 
